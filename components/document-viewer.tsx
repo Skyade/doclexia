@@ -7,16 +7,62 @@ import remarkBreaks from "remark-breaks"
 import rehypeRaw from "rehype-raw"
 
 type DocType = "docx" | "markdown" | "html" | "text"
-
 export type BgMode = "light" | "dark"
 
+type FontChoice = "default" | "lexend" | "opendyslexic" | "lora"
+type ReadMode = "word" | "letter"
 
+interface ReaderSettings {
+  font: FontChoice
+  speedMs: number
+  readMode: ReadMode
+  skipHeadings: boolean
+}
+
+const FONT_FAMILIES: Record<FontChoice, string> = {
+  default:      "var(--font-sans), system-ui, sans-serif",
+  lexend:       "'Lexend', sans-serif",
+  lora:         "'Lora', serif",
+  opendyslexic: "'OpenDyslexic', sans-serif",
+}
+
+const FONT_LABELS: Record<FontChoice, string> = {
+  default:      "Default (Geist)",
+  lexend:       "Lexend (Sans)",
+  lora:         "Lora (Serif)",
+  opendyslexic: "OpenDyslexic",
+}
+
+const SPEED_PRESETS = [
+  { label: "Slow", value: 200 },
+  { label: "Medium", value: 90 },
+  { label: "Fast", value: 45 },
+  { label: "V.Fast", value: 20 },
+]
+
+const LS_SETTINGS_KEY = "docviewer-settings"
+const HEADING_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6"])
+const MAX_FILE_SIZE_KB = 500 // 500KB limit to prevent browser crashes with millions of spans
+
+function loadSettings(): ReaderSettings {
+  try {
+    const raw = localStorage.getItem(LS_SETTINGS_KEY)
+    if (raw) return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, ...JSON.parse(raw) }
+  } catch {}
+  return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true }
+}
+
+function saveSettings(s: ReaderSettings) {
+  try { localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(s)) } catch {}
+}
 
 interface DocumentViewerProps {
   file: File
   onClose: () => void
   bg: BgMode
   onToggleBg: () => void
+  initialIndex?: number
+  onIndexChange?: (index: number) => void
 }
 
 function detectType(file: File): DocType {
@@ -27,28 +73,49 @@ function detectType(file: File): DocType {
   return "text"
 }
 
-
-
-// Walk all text nodes and replace each word with a <span class="doc-word" data-word="N">
-function wrapWordsInRoot(root: HTMLElement): number {
+function wrapWordsInRoot(root: HTMLElement, mode: ReadMode): number {
   let idx = 0
+
+  function isInsideHeading(node: Node): boolean {
+    let cur: Node | null = node.parentNode
+    while (cur && cur !== root) {
+      if (cur.nodeType === Node.ELEMENT_NODE && HEADING_TAGS.has((cur as HTMLElement).tagName)) return true
+      cur = cur.parentNode
+    }
+    return false
+  }
 
   function walk(node: Node) {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent ?? ""
       if (!text.trim()) return
+      const inHeading = isInsideHeading(node)
       const frag = document.createDocumentFragment()
       const tokens = text.split(/(\s+)/)
+      
       for (const token of tokens) {
         if (!token) continue
         if (/^\s+$/.test(token)) {
           frag.appendChild(document.createTextNode(token))
         } else {
-          const span = document.createElement("span")
-          span.className = "doc-word"
-          span.dataset.word = String(idx++)
-          span.textContent = token
-          frag.appendChild(span)
+          if (mode === "word") {
+            const span = document.createElement("span")
+            span.className = "doc-word"
+            span.dataset.word = String(idx++)
+            if (inHeading) span.dataset.inHeading = "true"
+            span.textContent = token
+            frag.appendChild(span)
+          } else {
+            // letter mode
+            for (const char of token) {
+              const span = document.createElement("span")
+              span.className = "doc-word"
+              span.dataset.word = String(idx++)
+              if (inHeading) span.dataset.inHeading = "true"
+              span.textContent = char
+              frag.appendChild(span)
+            }
+          }
         }
       }
       node.parentNode?.replaceChild(frag, node)
@@ -91,40 +158,105 @@ function MoonIcon() {
     </svg>
   )
 }
+function SettingsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+function CheckIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
 
+// Traces a smooth progress line around the 4 edges of a button using CSS conic-gradient and masks
+function BorderTrace({ progress }: { progress: number }) {
+  const p = Math.max(0, Math.min(100, progress))
+  return (
+    <div 
+      className="absolute inset-0 pointer-events-none" 
+      style={{
+        borderRadius: "16px",
+        padding: "3px", // Outline stroke width
+        // Conic gradient fills up like a pie chart
+        background: `conic-gradient(from 0deg at 50% 50%, rgba(239,68,68,0.9) ${p}%, transparent 0)`,
+        // Two masks: one for the content box (hollow center), one for the full border box.
+        // XOR composite means "only show the background where the masks DO NOT overlap" (i.e. only the padding area)
+        WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+        WebkitMaskComposite: "xor",
+        maskComposite: "exclude",
+      }}
+    />
+  )
+}
 
-
-// How long (ms) to hold before auto-repeat begins (Space or Backspace)
 const HOLD_INITIAL_DELAY = 320
-// Interval (ms) between words when holding
-const HOLD_REPEAT_MS = 90
-// How long (ms) to hold Backspace *past* the initial delay to trigger a full clear
 const BKSP_CLEAR_DURATION = 1200
 
-export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewerProps) {
+export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -1, onIndexChange }: DocumentViewerProps) {
   const [rawHtml, setRawHtml] = useState("")
   const [type, setType] = useState<DocType>("text")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Word-highlight state
-  const [readIndex, setReadIndex] = useState(-1)
+  const [settings, setSettings] = useState<ReaderSettings>({ font: "default", speedMs: 90, readMode: "word", skipHeadings: true })
+  const speedRef = useRef<number>(90)
+  const skipRef = useRef<boolean>(true)
+  
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Click outside to close menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [menuOpen])
+
+  useEffect(() => {
+    const s = loadSettings()
+    setSettings(s)
+    speedRef.current = s.speedMs
+    skipRef.current = s.skipHeadings
+  }, [])
+
+  const updateSettings = (patch: Partial<ReaderSettings>) => {
+    setSettings(prev => {
+      const next = { ...prev, ...patch }
+      if (patch.speedMs !== undefined) speedRef.current = patch.speedMs
+      if (patch.skipHeadings !== undefined) skipRef.current = patch.skipHeadings
+      saveSettings(next)
+      return next
+    })
+  }
+
+  const [readIndex, setReadIndex] = useState(initialIndex)
   const [totalWords, setTotalWords] = useState(0)
+  const [bkspProgress, setBkspProgress] = useState(0)
 
-  // Backspace hold-to-clear state
-  const [bkspProgress, setBkspProgress] = useState(0) // 0–100
-
-  // Separate stable container ref (never re-mounted by React)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const stableRef = useRef<HTMLDivElement | null>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
-  // Mutable refs so key handlers always see fresh values without re-binding
-  const readIndexRef = useRef(-1)
+  const wordSpanMapRef = useRef<Map<number, HTMLSpanElement>>(new Map())
+
+  const readIndexRef = useRef(initialIndex)
+
+  useEffect(() => {
+    if (onIndexChange) onIndexChange(readIndex)
+  }, [readIndex, onIndexChange])
   const totalWordsRef = useRef(0)
   const spaceHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const spaceRepeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // Backspace: phase 1 = single step-back, phase 2 = hold-to-clear fill bar
   const bkspHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bkspStartRef = useRef<number | null>(null)
   const bkspRafRef = useRef<number | null>(null)
@@ -147,6 +279,12 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
     setTotalWords(0)
     readIndexRef.current = -1
     totalWordsRef.current = 0
+
+    if (file.size > MAX_FILE_SIZE_KB * 1024) {
+      setError(`File is too large (${(file.size/1024).toFixed(0)}KB). Please use files under ${MAX_FILE_SIZE_KB}KB to prevent browser performance issues.`)
+      setLoading(false)
+      return
+    }
 
     const docType = detectType(file)
     setType(docType)
@@ -209,18 +347,24 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
       div.className = "doc-content prose-doc"
     } else if (type === "text") {
       const pre = document.createElement("pre")
-      pre.className = "whitespace-pre-wrap break-words font-mono text-sm leading-relaxed"
+      pre.className = "whitespace-pre-wrap break-words text-sm leading-relaxed"
       pre.textContent = rawHtml
       div.appendChild(pre)
     } else {
       return
     }
 
-    const count = wrapWordsInRoot(div)
+    const count = wrapWordsInRoot(div, settings.readMode)
+    const map = new Map<number, HTMLSpanElement>()
+    div.querySelectorAll<HTMLSpanElement>(".doc-word[data-word]").forEach(span => {
+      map.set(Number(span.dataset.word), span)
+    })
+    wordSpanMapRef.current = map
     setTotalWords(count)
     totalWordsRef.current = count
-    // NOTE: We no longer reset readIndex here to preserve progress on setting toggles
-  }, [loading, error, type, rawHtml])
+    setReadIndex(-1)
+    readIndexRef.current = -1
+  }, [loading, error, type, rawHtml, settings.readMode])
 
   useEffect(() => {
     if (type === "html" && !loading && rawHtml && iframeRef.current) {
@@ -238,55 +382,63 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
   }, [buildContent, type])
 
   // ---- apply / remove highlight colour imperatively ----
-  const applyHighlight = useCallback((upToIndex: number) => {
-    const root = stableRef.current ?? wrapperRef.current
-    if (!root) return
-    
-    // Performance optimization: only touch spans that actually need a change
-    // If it's a small document, full scan is fine, but for large ones we focus on the range
-    const spans = root.querySelectorAll<HTMLSpanElement>(".doc-word[data-word]")
-    spans.forEach((span) => {
-      const i = Number(span.dataset.word)
-      const shouldBeHighlighted = i <= upToIndex
-      const isCurrentlyHighlighted = span.style.backgroundColor !== ""
-      
-      if (shouldBeHighlighted !== isCurrentlyHighlighted) {
-        span.style.backgroundColor = shouldBeHighlighted ? hlColor : ""
-        span.style.borderRadius = shouldBeHighlighted ? "2px" : ""
+  const applyHighlight = useCallback((upToIndex: number, shouldScroll: boolean) => {
+    const map = wordSpanMapRef.current
+    if (!map.size) {
+      const root = stableRef.current ?? wrapperRef.current
+      if (!root) return
+      root.querySelectorAll<HTMLSpanElement>(".doc-word[data-word]").forEach((span) => {
+        const i = Number(span.dataset.word)
+        const shouldBe = i <= upToIndex
+        const isCurrent = span.style.backgroundColor !== ""
+        if (shouldBe !== isCurrent) {
+          span.style.backgroundColor = shouldBe ? hlColor : ""
+          span.style.borderRadius = shouldBe ? "2px" : ""
+        }
+        if (shouldScroll && i === upToIndex) span.scrollIntoView({ behavior: "smooth", block: "center" })
+      })
+      return
+    }
+    map.forEach((span, i) => {
+      const shouldBe = i <= upToIndex
+      const isCurrent = span.style.backgroundColor !== ""
+      if (shouldBe !== isCurrent) {
+        span.style.backgroundColor = shouldBe ? hlColor : ""
+        span.style.borderRadius = shouldBe ? "2px" : ""
       }
-
-      // Auto-scroll the active word into view
-      if (i === upToIndex) {
-        span.scrollIntoView({ behavior: "smooth", block: "center" })
-      }
+      if (shouldScroll && i === upToIndex) span.scrollIntoView({ behavior: "smooth", block: "center" })
     })
   }, [hlColor])
 
-  useEffect(() => { applyHighlight(readIndex) }, [readIndex, applyHighlight])
+  // Call on render, but DO NOT auto-scroll (prevents scrolling on theme toggle)
+  useEffect(() => { applyHighlight(readIndex, false) }, [readIndex, applyHighlight])
 
-  // ---- Space: advance one word per keydown, hold to repeat after initial delay ----
+  // ---- Space: advance one word, skipping heading words ----
   const stopSpace = useCallback(() => {
     if (spaceHoldTimerRef.current) { clearTimeout(spaceHoldTimerRef.current); spaceHoldTimerRef.current = null }
     if (spaceRepeatRef.current) { clearInterval(spaceRepeatRef.current); spaceRepeatRef.current = null }
   }, [])
 
   const advanceOne = useCallback(() => {
-    const next = readIndexRef.current + 1
+    let next = readIndexRef.current + 1
     if (next >= totalWordsRef.current) return
+
+    if (skipRef.current) {
+      const map = wordSpanMapRef.current
+      while (next < totalWordsRef.current) {
+        const span = map.get(next)
+        if (!span || span.dataset.inHeading !== "true") break
+        next++
+      }
+      if (next >= totalWordsRef.current) return
+    }
+
     readIndexRef.current = next
     setReadIndex(next)
-  }, [])
+    applyHighlight(next, true) // Explicitly scroll when advancing
+  }, [applyHighlight])
 
-  const startSpace = useCallback(() => {
-    // Advance exactly once immediately on press
-    advanceOne()
-    // After the initial delay, start the repeat interval
-    spaceHoldTimerRef.current = setTimeout(() => {
-      spaceRepeatRef.current = setInterval(advanceOne, HOLD_REPEAT_MS)
-    }, HOLD_INITIAL_DELAY)
-  }, [advanceOne])
-
-  // ---- Backspace: step back one word, hold to repeat, hold longer to clear ----
+  // ---- Backspace: step back one word, hold to clear ----
   const stopBksp = useCallback(() => {
     if (bkspHoldTimerRef.current) { clearTimeout(bkspHoldTimerRef.current); bkspHoldTimerRef.current = null }
     if (bkspRafRef.current) { cancelAnimationFrame(bkspRafRef.current); bkspRafRef.current = null }
@@ -299,19 +451,16 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
     if (prev < -1) return
     readIndexRef.current = prev
     setReadIndex(prev)
-  }, [])
+    applyHighlight(prev, true) // Explicitly scroll when retreating
+  }, [applyHighlight])
 
   const startBksp = useCallback(() => {
-    // Phase 1: step back exactly once on press
+    // Clear any accidental text selection on Android
+    window.getSelection()?.removeAllRanges()
+    
     retreatOne()
-
-    // Phase 2: after the same initial delay as Space, switch into "hold-to-clear" mode.
-    // We stop any further stepping and instead show the fill bar.
-    // Releasing before the bar fills cancels with no effect.
     bkspHoldTimerRef.current = setTimeout(() => {
-      // Begin fill animation
       bkspStartRef.current = performance.now()
-
       const tick = () => {
         if (bkspStartRef.current === null) return
         const elapsed = performance.now() - bkspStartRef.current
@@ -320,7 +469,6 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
         if (pct < 100) {
           bkspRafRef.current = requestAnimationFrame(tick)
         } else {
-          // Bar filled — clear everything
           readIndexRef.current = -1
           setReadIndex(-1)
           bkspStartRef.current = null
@@ -331,176 +479,246 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
     }, HOLD_INITIAL_DELAY)
   }, [retreatOne])
 
-  // ---- keyboard listeners ----
+  const startSpace = useCallback(() => {
+    // Clear any accidental text selection on Android
+    window.getSelection()?.removeAllRanges()
+    
+    advanceOne()
+    spaceHoldTimerRef.current = setTimeout(() => {
+      spaceRepeatRef.current = setInterval(advanceOne, speedRef.current)
+    }, HOLD_INITIAL_DELAY)
+  }, [advanceOne])
+
+  // ---- keyboard listeners & blur handlers ----
   useEffect(() => {
+    const cancelAll = () => { stopSpace(); stopBksp() }
+
     function onKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-
-      if (e.code === "Space") {
-        e.preventDefault()
-        if (e.repeat) return   // browser-level key repeat — we manage our own
-        startSpace()
-      }
-
-      if (e.code === "Backspace") {
-        e.preventDefault()
-        if (e.repeat) return
-        startBksp()
-      }
+      if (e.code === "Space") { e.preventDefault(); if (!e.repeat) startSpace() }
+      if (e.code === "Backspace") { e.preventDefault(); if (!e.repeat) startBksp() }
     }
-
     function onKeyUp(e: KeyboardEvent) {
-      if (e.code === "Space") {
-        stopSpace()
-      }
-      if (e.code === "Backspace") {
-        stopBksp()
-      }
+      if (e.code === "Space") stopSpace()
+      if (e.code === "Backspace") stopBksp()
     }
-
+    
     window.addEventListener("keydown", onKeyDown)
     window.addEventListener("keyup", onKeyUp)
+    window.addEventListener("blur", cancelAll)
+    window.addEventListener("contextmenu", cancelAll)
+    
     return () => {
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
-      stopSpace()
-      stopBksp()
+      window.removeEventListener("blur", cancelAll)
+      window.removeEventListener("contextmenu", cancelAll)
+      cancelAll()
     }
   }, [startSpace, stopSpace, startBksp, stopBksp])
-
 
   const ext = file.name.split(".").pop()?.toUpperCase() ?? "DOC"
   const sizeKb = (file.size / 1024).toFixed(0)
   const progressPct = totalWords > 0 ? Math.round(((readIndex + 1) / totalWords) * 100) : 0
+  const fontFamily = FONT_FAMILIES[settings.font]
 
   return (
     <div
       className="min-h-screen flex flex-col"
       style={{ backgroundColor: bgColor, color: textColor }}
     >
-      {/* ---- Header ---- */}
       <header
         className="sticky top-0 z-10 border-b backdrop-blur-sm"
         style={{ borderColor, backgroundColor: headerBg }}
       >
-        <div className="max-w-3xl mx-auto px-4 h-12 flex items-center gap-3">
-          <button
-            onClick={onClose}
-            aria-label="Close document"
-            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
-            style={{ color: mutedColor }}
-          >
-            <ArrowLeftIcon />
-          </button>
+        <div className="max-w-4xl mx-auto px-4 h-12 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={onClose}
+              aria-label="Close document"
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+              style={{ color: mutedColor }}
+            >
+              <ArrowLeftIcon />
+            </button>
 
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium truncate leading-tight">{file.name}</p>
-            <p className="text-xs leading-tight" style={{ color: mutedColor }}>
-              {ext} &middot; {sizeKb} KB
-              {totalWords > 0 && readIndex >= 0 && <span> &middot; {progressPct}% read</span>}
-            </p>
+            <div className="min-w-0 truncate">
+              <p className="text-sm font-medium truncate leading-tight">{file.name}</p>
+              <p className="text-xs leading-tight opacity-80" style={{ color: mutedColor }}>
+                {ext} &middot; {sizeKb} KB
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-1 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Settings Dropdown Wrapper */}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ borderColor, color: mutedColor }}
+              >
+                <SettingsIcon />
+                Settings
+              </button>
+
+              {menuOpen && (
+                <div 
+                  data-settings-panel
+                  className="absolute top-full right-0 mt-2 w-64 p-3 rounded-lg border shadow-xl z-50 flex flex-col gap-4"
+                  style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                >
+                  
+                  {/* Font Selector */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: mutedColor }}>Font Style</label>
+                    <select 
+                      value={settings.font} 
+                      onChange={(e) => updateSettings({ font: e.target.value as FontChoice })}
+                      className="w-full text-xs p-1.5 rounded border bg-transparent"
+                      style={{ borderColor, color: textColor }}
+                    >
+                      {(Object.keys(FONT_LABELS) as FontChoice[]).map(f => (
+                        <option key={f} value={f} style={{ background: bgColor }}>{FONT_LABELS[f]}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Mode Selector */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: mutedColor }}>Read Mode</label>
+                    <select 
+                      value={settings.readMode} 
+                      onChange={(e) => updateSettings({ readMode: e.target.value as ReadMode })}
+                      className="w-full text-xs p-1.5 rounded border bg-transparent"
+                      style={{ borderColor, color: textColor }}
+                    >
+                      <option value="word" style={{ background: bgColor }}>Word-by-Word</option>
+                      <option value="letter" style={{ background: bgColor }}>Letter-by-Letter</option>
+                    </select>
+                  </div>
+
+                  {/* Speed Selector */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: mutedColor }}>Hold Speed (ms)</label>
+                    <div className="flex gap-1 items-center">
+                      <input 
+                        type="number" 
+                        min="10" 
+                        max="1000"
+                        value={settings.speedMs}
+                        onChange={(e) => updateSettings({ speedMs: Number(e.target.value) || 90 })}
+                        className="w-16 text-xs p-1.5 rounded border bg-transparent text-center"
+                        style={{ borderColor, color: textColor }}
+                      />
+                      <div className="flex gap-1">
+                        {SPEED_PRESETS.map(p => (
+                          <button 
+                            key={p.label}
+                            onClick={() => updateSettings({ speedMs: p.value })}
+                            className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-black/5 dark:hover:bg-white/5"
+                            style={{ borderColor, color: settings.speedMs === p.value ? textColor : mutedColor }}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Skip Headings */}
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium cursor-pointer select-none" htmlFor="skip-headings">Auto-Skip Headings</label>
+                    <button
+                      id="skip-headings"
+                      onClick={() => updateSettings({ skipHeadings: !settings.skipHeadings })}
+                      className="w-4 h-4 rounded border flex items-center justify-center transition-colors focus:outline-none"
+                      style={{ 
+                        borderColor, 
+                        backgroundColor: settings.skipHeadings ? "rgb(250, 204, 21)" : "rgba(128,128,128,0.1)",
+                        color: "#000" // checkmark always dark for contrast against yellow
+                      }}
+                    >
+                      {settings.skipHeadings && <CheckIcon />}
+                    </button>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            <div className="w-px h-4" style={{ backgroundColor: borderColor }} />
+
             <button
               onClick={onToggleBg}
               title={isDark ? "Switch to light" : "Switch to dark"}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               style={{ borderColor, color: mutedColor }}
             >
               {isDark ? <SunIcon /> : <MoonIcon />}
-              {isDark ? "Light" : "Dark"}
             </button>
-
           </div>
         </div>
+
+        {!loading && !error && type !== "html" && (
+          <div
+            className="desktop-hints items-center justify-center gap-2 text-xs py-1.5 select-none border-t relative"
+            style={{ color: mutedColor, borderColor }}
+          >
+            {bkspProgress > 0 && (
+              <span className="inline-block rounded-sm overflow-hidden" style={{ width: 32, height: 4, backgroundColor: borderColor }} aria-hidden="true">
+                <span className="block h-full rounded-sm" style={{ width: `${bkspProgress}%`, backgroundColor: "rgba(239,68,68,0.7)" }} />
+              </span>
+            )}
+            <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono border" style={{ borderColor, color: mutedColor, backgroundColor: "transparent" }}>Space</kbd>
+            <span>to advance</span>
+            <span style={{ color: borderColor }}>·</span>
+            <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono border" style={{ borderColor, color: mutedColor, backgroundColor: "transparent" }}>Backspace</kbd>
+            <span>to step back</span>
+            <span style={{ color: borderColor }}>·</span>
+            <span>hold to clear</span>
+            
+            {/* X% Read centered perfectly relative to the bar */}
+            {totalWords > 0 && readIndex >= 0 && (
+              <div className="absolute top-1.5 right-4 font-bold text-xs" style={{ color: textColor }}>
+                {progressPct}% read
+              </div>
+            )}
+          </div>
+        )}
 
         {/* read-progress bar */}
         {totalWords > 0 && (
           <div className="h-0.5 w-full" style={{ backgroundColor: borderColor }}>
-            <div
-              className="h-full transition-all duration-75"
-              style={{
-                width: `${progressPct}%`,
-                backgroundColor: "rgba(250,204,21,0.65)",
-              }}
-            />
+            <div className="h-full transition-all duration-75" style={{ width: `${progressPct}%`, backgroundColor: "rgba(250,204,21,0.65)" }} />
           </div>
         )}
       </header>
 
-      {/* ---- Hint bar — always visible when document is loaded ---- */}
-      {!loading && !error && type !== "html" && totalWords > 0 && (
-        <div
-          className="flex items-center justify-center gap-2 text-xs py-2 select-none"
-          style={{ color: mutedColor, borderBottom: `1px solid ${borderColor}` }}
-        >
-          {/* Backspace clear progress indicator */}
-          {bkspProgress > 0 && (
-            <span
-              className="inline-block rounded-sm overflow-hidden"
-              style={{ width: 32, height: 4, backgroundColor: borderColor }}
-              aria-hidden="true"
-            >
-              <span
-                className="block h-full rounded-sm"
-                style={{
-                  width: `${bkspProgress}%`,
-                  backgroundColor: "rgba(239,68,68,0.7)",
-                  // Removed the conflicting CSS transition so requestAnimationFrame can run smoothly
-                }}
-              />
-            </span>
-          )}
-          <kbd
-            className="px-1.5 py-0.5 rounded text-xs font-mono border"
-            style={{ borderColor, color: mutedColor, backgroundColor: "transparent" }}
-          >
-            Space
-          </kbd>
-          <span>to advance</span>
-          <span style={{ color: borderColor }}>·</span>
-          <kbd
-            className="px-1.5 py-0.5 rounded text-xs font-mono border"
-            style={{ borderColor, color: mutedColor, backgroundColor: "transparent" }}
-          >
-            Backspace
-          </kbd>
-          <span>to step back</span>
-          <span style={{ color: borderColor }}>·</span>
-          <span>hold to clear</span>
-        </div>
-      )}
-
       {/* ---- Main content ---- */}
-      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-10">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-10 pb-32">
         {loading && (
           <div className="flex items-center justify-center h-40">
-            <div
-              className="w-5 h-5 rounded-full border-2 animate-spin"
-              style={{ borderColor, borderTopColor: textColor }}
-              aria-label="Loading"
-            />
+            <div className="w-5 h-5 rounded-full border-2 animate-spin" style={{ borderColor, borderTopColor: textColor }} aria-label="Loading" />
           </div>
         )}
 
         {error && (
-          <div
-            className="rounded-xl border px-5 py-4 text-sm"
-            style={{ borderColor: "#f87171", backgroundColor: "rgba(239,68,68,0.08)", color: "#ef4444" }}
-            role="alert"
-          >
+          <div className="rounded-xl border px-5 py-4 text-sm" style={{ borderColor: "#f87171", backgroundColor: "rgba(239,68,68,0.08)", color: "#ef4444" }} role="alert">
             {error}
           </div>
         )}
 
         {!loading && !error && (
           <>
+            {totalWords > 0 && readIndex >= 0 && (
+              <div className="text-center mb-8 opacity-50 text-xs tracking-widest uppercase font-bold" style={{ color: mutedColor }}>
+                {progressPct}% Read
+              </div>
+            )}
+
             {(type === "docx" || type === "text") && (
-              <div
-                ref={wrapperRef}
-                style={{ color: textColor }}
-              />
+              <div ref={wrapperRef} style={{ color: textColor, fontFamily }} />
             )}
 
             {type === "markdown" && (
@@ -508,10 +726,14 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
                 source={rawHtml}
                 textColor={textColor}
                 hlColor={hlColor}
-                onWrapped={(count) => {
+                fontFamily={fontFamily}
+                readMode={settings.readMode}
+                onWrapped={(count, map) => {
                   setTotalWords(count)
                   totalWordsRef.current = count
-                  // Progress is preserved via the readIndex prop
+                  wordSpanMapRef.current = map
+                  setReadIndex(-1)
+                  readIndexRef.current = -1
                 }}
                 readIndex={readIndex}
               />
@@ -529,6 +751,69 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
           </>
         )}
       </main>
+
+      {/* ---- Mobile Touch Controls ---- */}
+      {!loading && !error && type !== "html" && (
+        <div
+          data-mobile-controls
+          className="touch-controls fixed bottom-6 left-4 right-4 gap-3 z-40"
+          style={{
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          } as React.CSSProperties}
+        >
+          {/* Back button */}
+          <div className="relative flex-1">
+            <button
+              className="w-full py-5 border rounded-2xl transition-transform active:scale-95 flex items-center justify-center outline-none"
+              style={{
+                borderColor,
+                backgroundColor: headerBg,
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                touchAction: "none", // Critical for Android
+                WebkitTouchCallout: "none",
+              } as React.CSSProperties}
+              onTouchStart={(e) => { e.preventDefault(); startBksp(); }}
+              onTouchEnd={(e) => { e.preventDefault(); stopBksp(); }}
+              onTouchCancel={(e) => { e.preventDefault(); stopBksp(); }}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false; }}
+            >
+              <span className="font-semibold text-sm tracking-wide pointer-events-none select-none" style={{ color: textColor }}>
+                ← Back
+              </span>
+            </button>
+            {bkspProgress > 0 && <BorderTrace progress={bkspProgress} />}
+          </div>
+
+          {/* Advance button */}
+          <div className="relative flex-[2]">
+            <button
+              className="w-full py-5 border rounded-2xl transition-transform active:scale-95 flex items-center justify-center outline-none"
+              style={{
+                borderColor,
+                backgroundColor: headerBg,
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                touchAction: "none", // Critical for Android
+                WebkitTouchCallout: "none",
+              } as React.CSSProperties}
+              onTouchStart={(e) => { e.preventDefault(); startSpace(); }}
+              onTouchEnd={(e) => { e.preventDefault(); stopSpace(); }}
+              onTouchCancel={(e) => { e.preventDefault(); stopSpace(); }}
+              onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); return false; }}
+            >
+              <span className="font-semibold text-sm tracking-wide pointer-events-none select-none" style={{ color: textColor }}>
+                Advance →
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -538,42 +823,43 @@ interface MarkdownContentProps {
   source: string
   textColor: string
   hlColor: string
+  fontFamily: string
   readIndex: number
-  onWrapped: (count: number) => void
+  readMode: ReadMode
+  onWrapped: (count: number, map: Map<number, HTMLSpanElement>) => void
 }
 
-function MarkdownContent({ source, textColor, hlColor, readIndex, onWrapped }: MarkdownContentProps) {
+function MarkdownContent({ source, textColor, hlColor, fontFamily, readIndex, readMode, onWrapped }: MarkdownContentProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    // Remove previous wrapping
     el.querySelectorAll<HTMLSpanElement>(".doc-word").forEach((s) => {
       s.replaceWith(document.createTextNode(s.textContent ?? ""))
     })
     el.normalize()
-    const count = wrapWordsInRoot(el)
-    onWrapped(count)
+    const count = wrapWordsInRoot(el, readMode)
+    const map = new Map<number, HTMLSpanElement>()
+    el.querySelectorAll<HTMLSpanElement>(".doc-word[data-word]").forEach(span => {
+      map.set(Number(span.dataset.word), span)
+    })
+    onWrapped(count, map)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source])
+  }, [source, readMode])
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.querySelectorAll<HTMLSpanElement>(".doc-word[data-word]").forEach((span) => {
       const i = Number(span.dataset.word)
-      const shouldBeHighlighted = i <= readIndex
-      const isCurrentlyHighlighted = span.style.backgroundColor !== ""
-
-      if (shouldBeHighlighted !== isCurrentlyHighlighted) {
-        span.style.backgroundColor = shouldBeHighlighted ? hlColor : ""
-        span.style.borderRadius = shouldBeHighlighted ? "2px" : ""
+      const shouldBe = i <= readIndex
+      const isCurrent = span.style.backgroundColor !== ""
+      if (shouldBe !== isCurrent) {
+        span.style.backgroundColor = shouldBe ? hlColor : ""
+        span.style.borderRadius = shouldBe ? "2px" : ""
       }
-
-      if (i === readIndex) {
-        span.scrollIntoView({ behavior: "smooth", block: "center" })
-      }
+      if (i === readIndex) span.scrollIntoView({ behavior: "smooth", block: "center" })
     })
   }, [readIndex, hlColor])
 
@@ -581,7 +867,7 @@ function MarkdownContent({ source, textColor, hlColor, readIndex, onWrapped }: M
     <div
       ref={ref}
       className="prose-doc"
-      style={{ color: textColor }}
+      style={{ color: textColor, fontFamily }}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeRaw]}>
         {source}

@@ -95,7 +95,7 @@ export function DropZone({ onFile, bg, onToggleBg }: DropZoneProps) {
           Doclexia
         </h1>
         <p className="text-sm" style={{ color: mutedColor }}>
-          Drop a document to read it. Nothing leaves your browser.
+          Never lose track of where you are in a document.
         </p>
       </div>
 

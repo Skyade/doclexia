@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
   title: 'Doclexia',
-  description: 'Read .docx, Markdown, HTML, and plain text files locally in your browser.',
+  description: 'Never lose track of where you are in a document.',
   icons: {
     icon: [
       {
@@ -34,6 +34,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`bg-background scroll-smooth ${geist.variable} ${geistMono.variable}`}>
+      <head>
+        {/* Lexend (sans-serif) and Lora (serif) */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="font-sans antialiased">
         {children}
       </body>
