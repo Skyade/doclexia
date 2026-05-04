@@ -19,6 +19,7 @@ interface ReaderSettings {
   readMode: ReadMode
   skipHeadings: boolean
   fontSize: number
+  pinchToScale: boolean
 }
 
 const FONT_FAMILIES: Record<FontChoice, string> = {
@@ -48,9 +49,9 @@ const MAX_FILE_SIZE_KB = 500 // 500KB limit to prevent browser crashes with mill
 function loadSettings(): ReaderSettings {
   try {
     const raw = localStorage.getItem(LS_SETTINGS_KEY)
-    if (raw) return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, fontSize: 18, ...JSON.parse(raw) }
+    if (raw) return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, fontSize: 18, pinchToScale: true, ...JSON.parse(raw) }
   } catch {}
-  return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, fontSize: 18 }
+  return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, fontSize: 18, pinchToScale: true }
 }
 
 function saveSettings(s: ReaderSettings) {
@@ -222,6 +223,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
 
   // Custom Pinch-to-Resize logic for mobile
   usePinchToResize(useCallback((delta: number) => {
+    if (!settings.pinchToScale) return
     setSettings(prev => {
       const nextSize = Math.min(Math.max(prev.fontSize + delta, 12), 48)
       if (nextSize === prev.fontSize) return prev
@@ -229,7 +231,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
       saveSettings(next)
       return next
     })
-  }, []))
+  }, [settings.pinchToScale]))
 
   useEffect(() => {
     speedRef.current = settings.speedMs
@@ -758,11 +760,28 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
                       className="w-4 h-4 rounded border flex items-center justify-center transition-colors focus:outline-none"
                       style={{ 
                         borderColor, 
-                        backgroundColor: settings.skipHeadings ? "rgb(250, 204, 21)" : "rgba(128,128,128,0.1)",
-                        color: "#000" // checkmark always dark for contrast against yellow
+                        backgroundColor: settings.skipHeadings ? "rgb(249, 115, 22)" : "rgba(128,128,128,0.1)",
+                        color: "#fff" // checkmark white for contrast against orange
                       }}
                     >
                       {settings.skipHeadings && <CheckIcon />}
+                    </button>
+                  </div>
+
+                  {/* Pinch to Scale */}
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium cursor-pointer select-none" htmlFor="pinch-scale">Auto-Scale (Pinch)</label>
+                    <button
+                      id="pinch-scale"
+                      onClick={() => updateSettings({ pinchToScale: !settings.pinchToScale })}
+                      className="w-4 h-4 rounded border flex items-center justify-center transition-colors focus:outline-none"
+                      style={{ 
+                        borderColor, 
+                        backgroundColor: settings.pinchToScale ? "rgb(249, 115, 22)" : "rgba(128,128,128,0.1)",
+                        color: "#fff"
+                      }}
+                    >
+                      {settings.pinchToScale && <CheckIcon />}
                     </button>
                   </div>
 
