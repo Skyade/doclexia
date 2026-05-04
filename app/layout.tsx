@@ -6,12 +6,12 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://skyade.github.io/doclexia'),
+  metadataBase: new URL('https://skyade.github.io'),
   title: 'Doclexia',
   description: 'Never lose track of where you are in a document.',
   icons: {
-    icon: '/doclexia/icon.png',
-    apple: '/doclexia/apple-icon.png',
+    icon: 'https://skyade.github.io/doclexia/icon.png',
+    apple: 'https://skyade.github.io/doclexia/apple-icon.png',
   },
   openGraph: {
     title: 'Doclexia',
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     siteName: 'Doclexia',
     images: [
       {
-        url: '/doclexia/og-image.png',
+        url: 'https://skyade.github.io/doclexia/og-image.png',
         width: 1200,
         height: 630,
       },
@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     card: 'summary',
     title: 'Doclexia',
     description: 'Never lose track of where you are in a document.',
-    images: ['/doclexia/og-image.png'],
+    images: ['https://skyade.github.io/doclexia/og-image.png'],
   },
 }
 
@@ -52,6 +52,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`bg-background scroll-smooth ${geist.variable} ${geistMono.variable}`}>
       <head>
+        <meta name="theme-color" content="#B3951E" />
         {/* Lexend (sans-serif) and Lora (serif) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
