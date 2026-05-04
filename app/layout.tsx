@@ -6,6 +6,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://skyade.github.io/doclexia'),
   title: 'Doclexia',
   description: 'Never lose track of where you are in a document.',
   icons: {
