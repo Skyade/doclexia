@@ -5,8 +5,9 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkBreaks from "remark-breaks"
 import rehypeRaw from "rehype-raw"
+import { usePinchToResize } from "@/hooks/use-pinch-to-resize"
 
-type DocType = "docx" | "markdown" | "html" | "text"
+type DocType = "docx" | "markdown" | "html" | "text" | "pdf"
 export type BgMode = "light" | "dark"
 
 type FontChoice = "default" | "lexend" | "opendyslexic" | "lora"
@@ -17,6 +18,7 @@ interface ReaderSettings {
   speedMs: number
   readMode: ReadMode
   skipHeadings: boolean
+  fontSize: number
 }
 
 const FONT_FAMILIES: Record<FontChoice, string> = {
@@ -37,7 +39,6 @@ const SPEED_PRESETS = [
   { label: "Slow", value: 200 },
   { label: "Medium", value: 90 },
   { label: "Fast", value: 45 },
-  { label: "V.Fast", value: 20 },
 ]
 
 const LS_SETTINGS_KEY = "docviewer-settings"
@@ -47,9 +48,9 @@ const MAX_FILE_SIZE_KB = 500 // 500KB limit to prevent browser crashes with mill
 function loadSettings(): ReaderSettings {
   try {
     const raw = localStorage.getItem(LS_SETTINGS_KEY)
-    if (raw) return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, ...JSON.parse(raw) }
+    if (raw) return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, fontSize: 18, ...JSON.parse(raw) }
   } catch {}
-  return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true }
+  return { font: "default", speedMs: 90, readMode: "word", skipHeadings: true, fontSize: 18 }
 }
 
 function saveSettings(s: ReaderSettings) {
@@ -65,8 +66,19 @@ interface DocumentViewerProps {
   onIndexChange?: (index: number) => void
 }
 
-function detectType(file: File): DocType {
+async function detectType(file: File): Promise<DocType> {
+  // Read first 4 bytes to check magic numbers (signatures)
+  const buffer = await file.slice(0, 4).arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  
+  // PDF: %PDF (0x25 0x50 0x44 0x46)
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf"
+  
+  // DOCX/ZIP: PK\x03\x04 (0x50 0x4B 0x03 0x04)
+  if (bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04) return "docx"
+
   const ext = file.name.split(".").pop()?.toLowerCase()
+  if (ext === "pdf") return "pdf"
   if (ext === "docx" || ext === "doc") return "docx"
   if (ext === "md" || ext === "markdown") return "markdown"
   if (ext === "html" || ext === "htm") return "html"
@@ -204,9 +216,23 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [settings, setSettings] = useState<ReaderSettings>({ font: "default", speedMs: 90, readMode: "word", skipHeadings: true })
-  const speedRef = useRef<number>(90)
-  const skipRef = useRef<boolean>(true)
+  const [settings, setSettings] = useState<ReaderSettings>(() => loadSettings())
+  const speedRef = useRef(settings.speedMs)
+
+  // Custom Pinch-to-Resize logic for mobile
+  usePinchToResize(useCallback((delta: number) => {
+    setSettings(prev => {
+      const nextSize = Math.min(Math.max(prev.fontSize + delta, 12), 48)
+      if (nextSize === prev.fontSize) return prev
+      const next = { ...prev, fontSize: nextSize }
+      saveSettings(next)
+      return next
+    })
+  }, []))
+
+  useEffect(() => {
+    speedRef.current = settings.speedMs
+  }, [settings.speedMs])
   
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -250,6 +276,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
   const wordSpanMapRef = useRef<Map<number, HTMLSpanElement>>(new Map())
 
   const readIndexRef = useRef(initialIndex)
+  const isFirstBuildRef = useRef(true)
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(readIndex)
@@ -286,11 +313,10 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
       return
     }
 
-    const docType = detectType(file)
-    setType(docType)
-
     async function load() {
       try {
+        const docType = await detectType(file)
+        setType(docType)
         if (docType === "docx") {
           const mammoth = await import("mammoth")
           const arrayBuffer = await file.arrayBuffer()
@@ -316,13 +342,96 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
             }
           )
           if (!cancelled) setRawHtml(result.value)
+        } else if (docType === "pdf") {
+          console.log("[Doclexia] Initializing PDF engine...")
+          // Robust import: handle both ESM and CommonJS/Bundler wrappers
+          const pdfModule = await import("pdfjs-dist/legacy/build/pdf.mjs")
+          const pdfjsLib = pdfModule.getDocument ? pdfModule : (pdfModule as any).default
+          
+          if (!pdfjsLib || !pdfjsLib.getDocument) {
+            console.error("[Doclexia] PDF engine module invalid:", pdfModule)
+            throw new Error("PDF engine failed to load properly. Please try refreshing.")
+          }
+
+          // Lock worker version and use a more reliable fallback path
+          const pdfVersion = pdfjsLib.version || "5.7.284"
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfVersion}/legacy/build/pdf.worker.mjs`
+          
+          console.log(`[Doclexia] Fetching PDF buffer...`)
+          const buffer = await file.arrayBuffer()
+          const loadingTask = pdfjsLib.getDocument({ data: buffer })
+          const pdf = await loadingTask.promise
+          
+          console.log(`[Doclexia] PDF opened successfully: ${pdf.numPages} pages`)
+          let fullHtml = ""
+          let currentLineItems: any[] = []
+          let lastY: number | null = null
+          
+          function flushLine() {
+            if (currentLineItems.length === 0) return
+            const lineText = currentLineItems.map(it => it.str).join(" ").trim()
+            if (!lineText) { currentLineItems = []; return }
+            
+            // Heuristic: If font height is significantly larger than base text, it's a header
+            // Most PDF text is 9-11pt. 13pt+ is usually a header.
+            const maxHeight = Math.max(...currentLineItems.map(it => it.height || 0))
+            const isBold = currentLineItems.some(it => (it.fontName || "").toLowerCase().includes("bold"))
+            
+            if (maxHeight > 13 || (maxHeight > 11 && isBold)) {
+              fullHtml += `<h2 class="doc-pdf-header">${lineText}</h2>`
+            } else {
+              fullHtml += `<p>${lineText}</p>`
+            }
+            currentLineItems = []
+          }
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            console.log(`[Doclexia] Extracting page ${i}...`)
+            const page = await pdf.getPage(i)
+            const textContent = await page.getTextContent()
+            
+            for (const item of textContent.items as any[]) {
+              if (typeof item.str !== "string") continue
+              
+              const y = item.transform[5]
+              
+              if (lastY !== null && Math.abs(lastY - y) > 5) {
+                flushLine()
+              }
+              
+              currentLineItems.push(item)
+              lastY = y
+            }
+            flushLine() // End of page
+            lastY = null
+          }
+          pdf.destroy() 
+          
+          if (!fullHtml.trim()) {
+            throw new Error("No readable text found in this PDF. It might be a scanned document or image-only file.")
+          }
+
+          if (!cancelled) setRawHtml(fullHtml)
         } else {
           const text = await file.text()
           if (!cancelled) setRawHtml(text)
         }
       } catch (err) {
-        if (!cancelled)
-          setError("Failed to parse document. " + (err instanceof Error ? err.message : String(err)))
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : String(err)
+          if (msg.includes("is this a zip file")) {
+            const text = await file.text()
+            // If the file contains null bytes in the first chunk, it's definitely binary
+            if (text.slice(0, 2000).indexOf('\0') !== -1) {
+              setError("This appears to be an older Word format (.doc) or a binary file renamed to .docx. Doclexia only supports modern .docx, .pdf, or .txt files.")
+            } else {
+              setType("text")
+              setRawHtml(text)
+            }
+          } else {
+            setError("Failed to parse document. " + msg)
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -330,56 +439,6 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
     load()
     return () => { cancelled = true }
   }, [file])
-
-  // ---- build / rebuild the stable inner DOM ----
-  const buildContent = useCallback(() => {
-    const wrapper = wrapperRef.current
-    if (!wrapper || loading || error) return
-
-    if (stableRef.current) stableRef.current.remove()
-
-    const div = document.createElement("div")
-    wrapper.appendChild(div)
-    stableRef.current = div
-
-    if (type === "docx") {
-      div.innerHTML = rawHtml
-      div.className = "doc-content prose-doc"
-    } else if (type === "text") {
-      const pre = document.createElement("pre")
-      pre.className = "whitespace-pre-wrap break-words text-sm leading-relaxed"
-      pre.textContent = rawHtml
-      div.appendChild(pre)
-    } else {
-      return
-    }
-
-    const count = wrapWordsInRoot(div, settings.readMode)
-    const map = new Map<number, HTMLSpanElement>()
-    div.querySelectorAll<HTMLSpanElement>(".doc-word[data-word]").forEach(span => {
-      map.set(Number(span.dataset.word), span)
-    })
-    wordSpanMapRef.current = map
-    setTotalWords(count)
-    totalWordsRef.current = count
-    setReadIndex(-1)
-    readIndexRef.current = -1
-  }, [loading, error, type, rawHtml, settings.readMode])
-
-  useEffect(() => {
-    if (type === "html" && !loading && rawHtml && iframeRef.current) {
-      const doc = iframeRef.current.contentDocument
-      if (!doc) return
-      const themed = isDark
-        ? `<style>html,body{background:#1e1e1e!important;color:#d4d4d4!important;font-family:inherit;}</style>${rawHtml}`
-        : rawHtml
-      doc.open(); doc.write(themed); doc.close()
-    }
-  }, [type, loading, rawHtml, isDark])
-
-  useEffect(() => {
-    if (type !== "html" && type !== "markdown") buildContent()
-  }, [buildContent, type])
 
   // ---- apply / remove highlight colour imperatively ----
   const applyHighlight = useCallback((upToIndex: number, shouldScroll: boolean) => {
@@ -409,6 +468,65 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
       if (shouldScroll && i === upToIndex) span.scrollIntoView({ behavior: "smooth", block: "center" })
     })
   }, [hlColor])
+
+  // ---- build / rebuild the stable inner DOM ----
+  const buildContent = useCallback(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper || loading || error) return
+
+    if (stableRef.current) stableRef.current.remove()
+
+    const div = document.createElement("div")
+    wrapper.appendChild(div)
+    stableRef.current = div
+
+    if (type === "docx" || type === "pdf") {
+      div.innerHTML = rawHtml
+      div.className = "doc-content prose-doc"
+    } else if (type === "text") {
+      const pre = document.createElement("pre")
+      pre.className = "whitespace-pre-wrap break-words text-sm leading-relaxed"
+      pre.textContent = rawHtml
+      div.appendChild(pre)
+    } else {
+      return
+    }
+
+    const count = wrapWordsInRoot(div, settings.readMode)
+    const map = new Map<number, HTMLSpanElement>()
+    div.querySelectorAll<HTMLSpanElement>(".doc-word[data-word]").forEach(span => {
+      map.set(Number(span.dataset.word), span)
+    })
+    wordSpanMapRef.current = map
+    setTotalWords(count)
+    totalWordsRef.current = count
+
+    // If this is the first build, restore the initial index from cache
+    if (isFirstBuildRef.current) {
+      setReadIndex(initialIndex)
+      readIndexRef.current = initialIndex
+      // Ensure we highlight and scroll to the position once the DOM is ready
+      setTimeout(() => applyHighlight(initialIndex, true), 50)
+      isFirstBuildRef.current = false
+    }
+  }, [loading, error, type, rawHtml, settings.readMode, initialIndex, applyHighlight])
+
+  useEffect(() => {
+    if (type === "html" && !loading && rawHtml && iframeRef.current) {
+      const doc = iframeRef.current.contentDocument
+      if (!doc) return
+      const themed = isDark
+        ? `<style>html,body{background:#1e1e1e!important;color:#d4d4d4!important;font-family:inherit;}</style>${rawHtml}`
+        : rawHtml
+      doc.open(); doc.write(themed); doc.close()
+    }
+  }, [type, loading, rawHtml, isDark])
+
+  useEffect(() => {
+    if (type !== "html" && type !== "markdown") buildContent()
+  }, [buildContent, type])
+
+
 
   // Call on render, but DO NOT auto-scroll (prevents scrolling on theme toggle)
   useEffect(() => { applyHighlight(readIndex, false) }, [readIndex, applyHighlight])
@@ -478,6 +596,14 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
       bkspRafRef.current = requestAnimationFrame(tick)
     }, HOLD_INITIAL_DELAY)
   }, [retreatOne])
+
+  // ---- Cleanup all timers on unmount to prevent leaks ----
+  useEffect(() => {
+    return () => {
+      stopSpace()
+      stopBksp()
+    }
+  }, [stopSpace, stopBksp])
 
   const startSpace = useCallback(() => {
     // Clear any accidental text selection on Android
@@ -717,8 +843,8 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
               </div>
             )}
 
-            {(type === "docx" || type === "text") && (
-              <div ref={wrapperRef} style={{ color: textColor, fontFamily }} />
+            {(type === "docx" || type === "text" || type === "pdf") && (
+              <div ref={wrapperRef} style={{ color: textColor, fontFamily, fontSize: settings.fontSize }} />
             )}
 
             {type === "markdown" && (
@@ -727,6 +853,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
                 textColor={textColor}
                 hlColor={hlColor}
                 fontFamily={fontFamily}
+                fontSize={settings.fontSize}
                 readMode={settings.readMode}
                 onWrapped={(count, map) => {
                   setTotalWords(count)
@@ -824,12 +951,13 @@ interface MarkdownContentProps {
   textColor: string
   hlColor: string
   fontFamily: string
+  fontSize: number
   readIndex: number
   readMode: ReadMode
   onWrapped: (count: number, map: Map<number, HTMLSpanElement>) => void
 }
 
-function MarkdownContent({ source, textColor, hlColor, fontFamily, readIndex, readMode, onWrapped }: MarkdownContentProps) {
+function MarkdownContent({ source, textColor, hlColor, fontFamily, fontSize, readIndex, readMode, onWrapped }: MarkdownContentProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -864,10 +992,10 @@ function MarkdownContent({ source, textColor, hlColor, fontFamily, readIndex, re
   }, [readIndex, hlColor])
 
   return (
-    <div
-      ref={ref}
-      className="prose-doc"
-      style={{ color: textColor, fontFamily }}
+    <div 
+      ref={ref} 
+      className="prose-doc" 
+      style={{ color: textColor, fontFamily, fontSize }}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeRaw]}>
         {source}

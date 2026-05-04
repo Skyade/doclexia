@@ -3,13 +3,14 @@
 import { useCallback, useState } from "react"
 import type { BgMode } from "@/components/document-viewer"
 
-const ACCEPTED_TYPES = [".docx", ".doc", ".md", ".txt", ".html", ".htm"]
+const ACCEPTED_TYPES = [".docx", ".doc", ".md", ".txt", ".html", ".htm", ".pdf"]
 const ACCEPTED_MIME = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/msword",
   "text/markdown",
   "text/plain",
   "text/html",
+  "application/pdf",
 ]
 
 function SunIcon() {
@@ -58,7 +59,10 @@ export function DropZone({ onFile, bg, onToggleBg }: DropZoneProps) {
   const handle = useCallback(
     (file: File) => {
       setError(null)
-      if (!validate(file)) { setError(`Unsupported file type: ${file.name}`); return }
+      if (!validate(file)) { 
+        setError(`Unsupported file type: ${file.name}. If you'd like to see this format supported, feel free to reach out and request it!`)
+        return 
+      }
       onFile(file)
     },
     [onFile]
@@ -140,7 +144,7 @@ export function DropZone({ onFile, bg, onToggleBg }: DropZoneProps) {
       </label>
 
       <p className="mt-4 text-xs" style={{ color: mutedColor }}>
-        Supports .docx, .doc, .md, .txt, .html
+        Supports .pdf, .docx, .doc, .md, .txt, .html
       </p>
 
       {error && (
@@ -148,6 +152,15 @@ export function DropZone({ onFile, bg, onToggleBg }: DropZoneProps) {
           {error}
         </p>
       )}
+
+      <footer className="absolute bottom-6 left-0 right-0 text-center flex flex-col gap-1 opacity-40 select-none">
+        <p className="text-[10px] italic" style={{ color: mutedColor }}>
+          made by skyade w/ coffee
+        </p>
+        <p className="text-[10px] italic" style={{ color: mutedColor }}>
+          enjoy knowing where you are, or left off
+        </p>
+      </footer>
     </div>
   )
 }
