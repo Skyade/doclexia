@@ -157,7 +157,7 @@
 .prose-doc {
   font-family: inherit !important;
   /* color is set via inline style from viewer settings */
-  font-size: 0.9375rem;
+  font-size: inherit;
   line-height: 1.75;
   max-width: 100%;
 }
