@@ -741,7 +741,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
                           <button 
                             key={p.label}
                             onClick={() => updateSettings({ speedMs: p.value })}
-                            className="text-[10px] px-1.5 py-0.5 rounded border hover:bg-black/5 dark:hover:bg-white/5"
+                            className="text-xs px-2.5 py-1.5 rounded border hover:bg-black/5 dark:hover:bg-white/5"
                             style={{ borderColor, color: settings.speedMs === p.value ? textColor : mutedColor }}
                           >
                             {p.label}
