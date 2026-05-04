@@ -62,7 +62,13 @@ export default function Page() {
   const toggleBg = () => {
     setBg((prev) => {
       const next: BgMode = prev === "dark" ? "light" : "dark"
-      try { localStorage.setItem(LS_KEY, next) } catch {}
+      try { 
+        localStorage.setItem(LS_KEY, next)
+        // Sync with root for overscroll
+        document.documentElement.style.backgroundColor = next === 'dark' ? '#141414' : '#ffffff'
+        if (next === 'dark') document.documentElement.classList.add('dark')
+        else document.documentElement.classList.remove('dark')
+      } catch {}
       return next
     })
   }

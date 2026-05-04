@@ -41,6 +41,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#B3951E' },
     { media: '(prefers-color-scheme: dark)', color: '#141414' },
@@ -55,6 +56,17 @@ export default function RootLayout({
   return (
     <html lang="en" className={`bg-background text-foreground scroll-smooth ${geist.variable} ${geistMono.variable}`}>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            const bg = localStorage.getItem('docviewer-bg');
+            if (bg === 'dark') {
+              document.documentElement.classList.add('dark');
+              document.documentElement.style.backgroundColor = '#141414';
+            } else {
+              document.documentElement.style.backgroundColor = '#ffffff';
+            }
+          } catch (e) {}
+        ` }} />
         <meta name="theme-color" content="#B3951E" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
         <link rel="icon" href="https://skyade.github.io/doclexia/icon.png" />
