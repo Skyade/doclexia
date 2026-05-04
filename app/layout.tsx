@@ -12,6 +12,27 @@ export const metadata: Metadata = {
     icon: '/doclexia/icon.png',
     apple: '/doclexia/apple-icon.png',
   },
+  openGraph: {
+    title: 'Doclexia',
+    description: 'Never lose track of where you are in a document.',
+    url: 'https://skyade.github.io/doclexia/',
+    siteName: 'Doclexia',
+    images: [
+      {
+        url: '/doclexia/og-image.png',
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Doclexia',
+    description: 'Never lose track of where you are in a document.',
+    images: ['/doclexia/og-image.png'],
+  },
 }
 
 export const viewport = {
@@ -19,6 +40,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: '#B3951E',
 }
 
 export default function RootLayout({
