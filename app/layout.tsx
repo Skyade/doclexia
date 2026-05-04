@@ -41,7 +41,10 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#B3951E',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#B3951E' },
+    { media: '(prefers-color-scheme: dark)', color: '#141414' },
+  ],
 }
 
 export default function RootLayout({
@@ -50,9 +53,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`bg-background scroll-smooth ${geist.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`bg-background text-foreground scroll-smooth ${geist.variable} ${geistMono.variable}`}>
       <head>
-        <meta name="theme-color" content="#B3951E" />
+        <meta name="theme-color" content="#B3951E" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
         <link rel="icon" href="https://skyade.github.io/doclexia/icon.png" />
         <link rel="apple-touch-icon" href="https://skyade.github.io/doclexia/apple-icon.png" />
         {/* Lexend (sans-serif) and Lora (serif) */}
