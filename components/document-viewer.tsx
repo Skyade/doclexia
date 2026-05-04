@@ -690,7 +690,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
               {menuOpen && (
                 <div 
                   data-settings-panel
-                  className="absolute top-full right-0 mt-2 w-64 p-3 rounded-lg border shadow-xl z-50 flex flex-col gap-4"
+                  className="absolute top-full right-0 mt-2 w-72 p-3 rounded-lg border shadow-xl z-50 flex flex-col gap-4"
                   style={{ backgroundColor: bgColor, borderColor, color: textColor }}
                 >
                   
@@ -726,7 +726,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
                   {/* Speed Selector */}
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: mutedColor }}>Hold Speed (ms)</label>
-                    <div className="flex gap-1 items-center">
+                    <div className="flex gap-2 items-center">
                       <input 
                         type="number" 
                         min="10" 
