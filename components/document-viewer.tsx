@@ -218,6 +218,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
 
   const [settings, setSettings] = useState<ReaderSettings>(() => loadSettings())
   const speedRef = useRef(settings.speedMs)
+  const skipRef = useRef(settings.skipHeadings)
 
   // Custom Pinch-to-Resize logic for mobile
   usePinchToResize(useCallback((delta: number) => {
@@ -232,7 +233,8 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
 
   useEffect(() => {
     speedRef.current = settings.speedMs
-  }, [settings.speedMs])
+    skipRef.current = settings.skipHeadings
+  }, [settings.speedMs, settings.skipHeadings])
   
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -248,12 +250,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [menuOpen])
 
-  useEffect(() => {
-    const s = loadSettings()
-    setSettings(s)
-    speedRef.current = s.speedMs
-    skipRef.current = s.skipHeadings
-  }, [])
+  // Redundant effect removed to avoid confusion
 
   const updateSettings = (patch: Partial<ReaderSettings>) => {
     setSettings(prev => {
