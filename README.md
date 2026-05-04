@@ -7,6 +7,8 @@ It strips away distractions, normalizes document formatting, and provides a cust
 
 Works on desktop and mobile! iOS or Android - Windows or macOS
 
+**[Try it → skyade.github.io/doclexia](https://skyade.github.io/doclexia/)**
+
 ## Features
 
 Doclexia loads `.docx`, `.md`, `.html`, and `.txt` files directly in the browser and reads them back word by word at whatever speed you set, headings and formatting tags skipped automatically, so only the actual content comes through.
