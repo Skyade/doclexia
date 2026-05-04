@@ -7,7 +7,7 @@ It strips away distractions, normalizes document formatting, and provides a cust
 
 Works on desktop and mobile! iOS or Android - Windows or macOS
 
-**[Try it → skyade.github.io/doclexia](https://skyade.github.io/doclexia/)**
+**[Try by clicking here!](https://skyade.github.io/doclexia/)**
 
 ## Features
 
