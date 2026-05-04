@@ -9,14 +9,11 @@ Works on desktop and mobile! iOS or Android - Windows or macOS
 
 ## Features
 
-- **Format Agnostic**: Instantly loads `.docx`, `.md`, `.html`, and `.txt` files directly in the browser.
-- **Word-by-Word Reading**: Focus on one word at a time with adjustable speeds and manual control.
-- **Auto-Skip Headings**: Automatically skips past formatting tags and headings so you only read the core content.
-- **Dyslexia-Optimized Typography**: Built-in support for OpenDyslexic, Lexend, and high-legibility Serif fonts.
-- **Persistent State**: Closes the tab? Refreshes the page? Doclexia automatically restores your active document and exact reading position using local IndexedDB caching!
-- **Mobile First**: Fully responsive with custom touch gesture controls and bulletproof Android/iOS selection blocking.
-- **Quick Paste**: Press `Ctrl+V` anywhere on the homepage to instantly load copied text or files into the reader.
-- **100% Local**: All processing, parsing, and caching happens locally on your device. No data is sent to any server, ever!
+Doclexia loads `.docx`, `.md`, `.html`, and `.txt` files directly in the browser and reads them back word by word at whatever speed you set, headings and formatting tags skipped automatically, so only the actual content comes through.
+Font options include OpenDyslexic, Lexend, and high-legibility serifs. Close the tab, refresh, whatever, it restores your document and exact position from local IndexedDB cache.
+
+Paste anything with `Ctrl+V` on the homepage and it loads instantly.
+Touch controls work on mobile, Android/iOS selection blocking is handled, and nothing ever leaves your device, all parsing, processing, and caching is local only.
 
 ## Technologies Used (Nerd)
 
@@ -24,4 +21,3 @@ Works on desktop and mobile! iOS or Android - Windows or macOS
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Mammoth.js](https://github.com/mwilliamson/mammoth.js/) (for robust `.docx` parsing)
 - Native `IndexedDB` for offline document caching
-- Deployed via GitHub Pages
