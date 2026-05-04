@@ -6,12 +6,12 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://skyade.github.io'),
+  metadataBase: new URL('https://skyade.github.io/doclexia'),
   title: 'Doclexia',
   description: 'Never lose track of where you are in a document.',
   icons: {
-    icon: 'https://skyade.github.io/doclexia/icon.png',
-    apple: 'https://skyade.github.io/doclexia/apple-icon.png',
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
   },
   openGraph: {
     title: 'Doclexia',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     type: 'website',
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'Doclexia',
     description: 'Never lose track of where you are in a document.',
     images: ['https://skyade.github.io/doclexia/og-image.png'],
@@ -42,10 +42,7 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#B3951E' },
-    { media: '(prefers-color-scheme: dark)', color: '#141414' },
-  ],
+  themeColor: '#B3951E',
 }
 
 export default function RootLayout({
@@ -56,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`bg-background text-foreground scroll-smooth ${geist.variable} ${geistMono.variable}`}>
       <head>
+        <meta name="theme-color" content="#B3951E" />
         <script dangerouslySetInnerHTML={{ __html: `
           try {
             const bg = localStorage.getItem('docviewer-bg');
@@ -67,8 +65,6 @@ export default function RootLayout({
             }
           } catch (e) {}
         ` }} />
-        <meta name="theme-color" content="#B3951E" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#141414" media="(prefers-color-scheme: dark)" />
         <link rel="icon" href="https://skyade.github.io/doclexia/icon.png" />
         <link rel="apple-touch-icon" href="https://skyade.github.io/doclexia/apple-icon.png" />
         {/* Lexend (sans-serif) and Lora (serif) */}
