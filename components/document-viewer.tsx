@@ -736,12 +736,12 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
                         className="w-16 text-xs p-1.5 rounded border bg-transparent text-center"
                         style={{ borderColor, color: textColor }}
                       />
-                      <div className="flex gap-1">
+                      <div className="flex gap-2 flex-1">
                         {SPEED_PRESETS.map(p => (
                           <button 
                             key={p.label}
                             onClick={() => updateSettings({ speedMs: p.value })}
-                            className="text-xs px-2.5 py-1.5 rounded border hover:bg-black/5 dark:hover:bg-white/5"
+                            className="flex-1 text-xs py-1.5 rounded border hover:bg-black/5 dark:hover:bg-white/5"
                             style={{ borderColor, color: settings.speedMs === p.value ? textColor : mutedColor }}
                           >
                             {p.label}
