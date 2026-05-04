@@ -10,10 +10,7 @@ type DocType = "docx" | "markdown" | "html" | "text"
 
 export type BgMode = "light" | "dark"
 
-interface ViewerSettings {
-  uniformSize: boolean
-  stripColors: boolean
-}
+
 
 interface DocumentViewerProps {
   file: File
@@ -30,22 +27,7 @@ function detectType(file: File): DocType {
   return "text"
 }
 
-function stripInlineStyles(html: string, stripSize: boolean, stripColor: boolean): string {
-  if (!stripSize && !stripColor) return html
-  return html.replace(/style="([^"]*)"/gi, (_match, styles: string) => {
-    let parts = styles.split(";").map((s) => s.trim()).filter(Boolean)
-    if (stripSize) parts = parts.filter((p) => !p.toLowerCase().startsWith("font-size"))
-    if (stripColor) {
-      parts = parts.filter(
-        (p) =>
-          !p.toLowerCase().startsWith("color") &&
-          !p.toLowerCase().startsWith("background-color") &&
-          !p.toLowerCase().startsWith("background:")
-      )
-    }
-    return parts.length > 0 ? `style="${parts.join("; ")}"` : ""
-  })
-}
+
 
 // Walk all text nodes and replace each word with a <span class="doc-word" data-word="N">
 function wrapWordsInRoot(root: HTMLElement): number {
@@ -110,32 +92,7 @@ function MoonIcon() {
   )
 }
 
-interface ChipProps {
-  active: boolean
-  onClick: () => void
-  title: string
-  children: React.ReactNode
-  textColor: string
-  mutedColor: string
-  borderColor: string
-}
-function Chip({ active, onClick, title, children, textColor, mutedColor, borderColor }: ChipProps) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      aria-pressed={active}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-colors"
-      style={
-        active
-          ? { borderColor, backgroundColor: `${textColor}18`, color: textColor }
-          : { borderColor: "transparent", color: mutedColor }
-      }
-    >
-      {children}
-    </button>
-  )
-}
+
 
 // How long (ms) to hold before auto-repeat begins (Space or Backspace)
 const HOLD_INITIAL_DELAY = 320
@@ -149,7 +106,6 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
   const [type, setType] = useState<DocType>("text")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [settings, setSettings] = useState<ViewerSettings>({ uniformSize: false, stripColors: false })
 
   // Word-highlight state
   const [readIndex, setReadIndex] = useState(-1)
@@ -249,8 +205,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
     stableRef.current = div
 
     if (type === "docx") {
-      const processed = stripInlineStyles(rawHtml, settings.uniformSize, settings.stripColors)
-      div.innerHTML = processed
+      div.innerHTML = rawHtml
       div.className = "doc-content prose-doc"
     } else if (type === "text") {
       const pre = document.createElement("pre")
@@ -265,7 +220,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
     setTotalWords(count)
     totalWordsRef.current = count
     // NOTE: We no longer reset readIndex here to preserve progress on setting toggles
-  }, [loading, error, type, rawHtml, settings])
+  }, [loading, error, type, rawHtml])
 
   useEffect(() => {
     if (type === "html" && !loading && rawHtml && iframeRef.current) {
@@ -413,8 +368,6 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
     }
   }, [startSpace, stopSpace, startBksp, stopBksp])
 
-  const toggle = (key: keyof ViewerSettings) =>
-    setSettings((s) => ({ ...s, [key]: !s[key] }))
 
   const ext = file.name.split(".").pop()?.toUpperCase() ?? "DOC"
   const sizeKb = (file.size / 1024).toFixed(0)
@@ -459,33 +412,6 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
               {isDark ? "Light" : "Dark"}
             </button>
 
-            <div className="w-px h-4" style={{ backgroundColor: borderColor }} />
-
-            <Chip
-              active={settings.uniformSize}
-              onClick={() => toggle("uniformSize")}
-              title={settings.uniformSize ? "Restore original sizes" : "Uniform font size"}
-              textColor={textColor} mutedColor={mutedColor} borderColor={borderColor}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="4 7 4 4 20 4 20 7" />
-                <line x1="9" y1="20" x2="15" y2="20" />
-                <line x1="12" y1="4" x2="12" y2="20" />
-              </svg>
-              Size
-            </Chip>
-
-            <Chip
-              active={settings.stripColors}
-              onClick={() => toggle("stripColors")}
-              title={settings.stripColors ? "Restore original colors" : "Remove inline colors"}
-              textColor={textColor} mutedColor={mutedColor} borderColor={borderColor}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
-              </svg>
-              Color
-            </Chip>
           </div>
         </div>
 
@@ -521,7 +447,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
                 style={{
                   width: `${bkspProgress}%`,
                   backgroundColor: "rgba(239,68,68,0.7)",
-                  transition: "width 50ms linear",
+                  // Removed the conflicting CSS transition so requestAnimationFrame can run smoothly
                 }}
               />
             </span>
@@ -573,18 +499,13 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
             {(type === "docx" || type === "text") && (
               <div
                 ref={wrapperRef}
-                style={
-                  settings.uniformSize
-                    ? { color: textColor, fontSize: "0.9375rem" }
-                    : { color: textColor }
-                }
+                style={{ color: textColor }}
               />
             )}
 
             {type === "markdown" && (
               <MarkdownContent
                 source={rawHtml}
-                settings={settings}
                 textColor={textColor}
                 hlColor={hlColor}
                 onWrapped={(count) => {
@@ -615,14 +536,13 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg }: DocumentViewer
 // ---- Markdown sub-component ----
 interface MarkdownContentProps {
   source: string
-  settings: ViewerSettings
   textColor: string
   hlColor: string
   readIndex: number
   onWrapped: (count: number) => void
 }
 
-function MarkdownContent({ source, settings, textColor, hlColor, readIndex, onWrapped }: MarkdownContentProps) {
+function MarkdownContent({ source, textColor, hlColor, readIndex, onWrapped }: MarkdownContentProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -636,7 +556,7 @@ function MarkdownContent({ source, settings, textColor, hlColor, readIndex, onWr
     const count = wrapWordsInRoot(el)
     onWrapped(count)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, settings.uniformSize, settings.stripColors])
+  }, [source])
 
   useEffect(() => {
     const el = ref.current
@@ -661,7 +581,7 @@ function MarkdownContent({ source, settings, textColor, hlColor, readIndex, onWr
     <div
       ref={ref}
       className="prose-doc"
-      style={settings.uniformSize ? { color: textColor, fontSize: "0.9375rem" } : { color: textColor }}
+      style={{ color: textColor }}
     >
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeRaw]}>
         {source}

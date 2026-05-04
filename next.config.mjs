@@ -2,6 +2,7 @@
 const nextConfig = {
   output: 'export',
   basePath: '/doclexia',
+  assetPrefix: '/doclexia',
   typescript: {
     ignoreBuildErrors: true,
   },
