@@ -2,7 +2,10 @@
 
 **Never lose track of where you are in a document.**
 
-Doclexia is a specialized document reader designed to enhance focus, accessibility, and reading retention. It strips away distractions, normalizes document formatting, and provides a customizable word-by-word reading interface tailored for maximum legibility.
+Doclexia is basically a specialized document reader designed to enhance focus, accessibility, and reading retention.
+It strips away distractions, normalizes document formatting, and provides a customizable word-by-word reading interface, now you don't get lost!
+
+Works on desktop and mobile! iOS or Android - Windows or macOS
 
 ## Features
 
@@ -15,7 +18,7 @@ Doclexia is a specialized document reader designed to enhance focus, accessibili
 - **Quick Paste**: Press `Ctrl+V` anywhere on the homepage to instantly load copied text or files into the reader.
 - **100% Local**: All processing, parsing, and caching happens locally on your device. No data is sent to any server, ever!
 
-## Technologies Used
+## Technologies Used (Nerd)
 
 - [Next.js](https://nextjs.org/) (React Framework)
 - [Tailwind CSS](https://tailwindcss.com/)
