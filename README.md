@@ -11,7 +11,7 @@ Works on desktop and mobile! iOS or Android - Windows or macOS
 
 ## Features
 
-Doclexia loads `.docx`, `.md`, `.html`, and `.txt` files directly in the browser and reads them back word by word at whatever speed you set, headings and formatting tags skipped automatically, so only the actual content comes through.
+Doclexia loads `.pdf`, `.docx`, `.md`, `.html`, and `.txt` files directly in the browser and reads them back word by word at whatever speed you set, headings and formatting tags skipped automatically, so only the actual content comes through.
 
 Font options include OpenDyslexic, Lexend, and high-legibility serifs. Close the tab, refresh, whatever, it restores your document and exact position from local IndexedDB cache.
 
