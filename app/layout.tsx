@@ -53,6 +53,8 @@ export default function RootLayout({
     <html lang="en" className={`bg-background scroll-smooth ${geist.variable} ${geistMono.variable}`}>
       <head>
         <meta name="theme-color" content="#B3951E" />
+        <link rel="icon" href="https://skyade.github.io/doclexia/icon.png" />
+        <link rel="apple-touch-icon" href="https://skyade.github.io/doclexia/apple-icon.png" />
         {/* Lexend (sans-serif) and Lora (serif) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
