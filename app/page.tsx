@@ -129,13 +129,19 @@ export default function Page() {
   if (!mounted) return null
 
   return (
-    <div 
-      className="relative min-h-screen w-full bg-background overflow-hidden"
-      style={{ 
-        filter: themeBlur ? "blur(4px)" : "none",
-        transition: "filter 250ms ease"
-      }}
-    >
+    <div className="relative min-h-screen w-full bg-background overflow-hidden">
+      
+      {/* Theme Transition Blur Overlay */}
+      <div 
+        className="fixed inset-0 z-[100] pointer-events-none"
+        style={{
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+          opacity: themeBlur ? 1 : 0,
+          transition: "opacity 250ms ease",
+          willChange: "opacity"
+        }}
+      />
       {/* MAIN VIEW */}
       <div 
         className="fixed inset-0 w-full h-full overflow-y-auto"
