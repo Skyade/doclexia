@@ -900,7 +900,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
       {!loading && !error && type !== "html" && (
         <div
           data-mobile-controls
-          className="touch-controls fixed bottom-6 left-4 right-4 gap-3 z-40"
+          className="touch-controls sticky bottom-6 mx-4 mt-auto flex gap-3 z-40"
           style={{
             userSelect: "none",
             WebkitUserSelect: "none",
