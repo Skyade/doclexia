@@ -444,7 +444,7 @@ export function DropZone({ onFile, bg, onToggleBg, history = [], onHistoryOpen, 
       {history.length > 0 && onHistoryOpen && onHistoryRemove && (
         <div className="mt-12 w-full max-w-md animate-fadeIn">
           <h2
-            className="text-[10px] font-bold uppercase tracking-[0.15em] mb-3 px-1"
+            className="text-sm mb-3 px-1"
             style={{ color: mutedColor }}
           >
             Recent
