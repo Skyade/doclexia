@@ -64,7 +64,7 @@ interface DocumentViewerProps {
   bg: BgMode
   onToggleBg: () => void
   initialIndex?: number
-  onIndexChange?: (index: number) => void
+  onIndexChange?: (index: number, totalWords: number) => void
 }
 
 async function detectType(file: File): Promise<DocType> {
@@ -278,8 +278,8 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
   const isFirstBuildRef = useRef(true)
 
   useEffect(() => {
-    if (onIndexChange) onIndexChange(readIndex)
-  }, [readIndex, onIndexChange])
+    if (onIndexChange) onIndexChange(readIndex, totalWords)
+  }, [readIndex, totalWords, onIndexChange])
   const totalWordsRef = useRef(0)
   const spaceHoldTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const spaceRepeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -288,12 +288,13 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
   const bkspRafRef = useRef<number | null>(null)
 
   const isDark = bg === "dark"
-  const bgColor     = isDark ? "#1e1e1e" : "#ffffff"
-  const textColor   = isDark ? "#d4d4d4" : "#1a1a1a"
-  const borderColor = isDark ? "#2e2e2e" : "#e5e5e5"
-  const mutedColor  = isDark ? "#666666" : "#9ca3af"
-  const headerBg    = isDark ? "rgba(30,30,30,0.9)" : "rgba(255,255,255,0.9)"
-  const hlColor     = isDark ? "rgba(250,204,21,0.30)" : "rgba(250,204,21,0.50)"
+  const bgColor     = "var(--background)"
+  const textColor   = "var(--foreground)"
+  const borderColor = "var(--border)"
+  const mutedColor  = "var(--muted-foreground)"
+  const headerBg    = "color-mix(in srgb, var(--background) 85%, transparent)"
+  // Yellow highlighter colors - these are fine as hex/rgba since they are fast
+  const hlColor     = isDark ? "rgba(250,204,21,0.3)" : "rgba(179,149,30,0.15)"
 
   // ---- load file ----
   useEffect(() => {
@@ -760,8 +761,8 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
                       className="w-4 h-4 rounded border flex items-center justify-center transition-colors focus:outline-none"
                       style={{ 
                         borderColor, 
-                        backgroundColor: settings.skipHeadings ? "rgb(249, 115, 22)" : "rgba(128,128,128,0.1)",
-                        color: "#fff" // checkmark white for contrast against orange
+                        backgroundColor: settings.skipHeadings ? "#B3951E" : "rgba(128,128,128,0.1)",
+                        color: "#fff" // checkmark white for contrast
                       }}
                     >
                       {settings.skipHeadings && <CheckIcon />}
@@ -777,7 +778,7 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
                       className="w-4 h-4 rounded border flex items-center justify-center transition-colors focus:outline-none"
                       style={{ 
                         borderColor, 
-                        backgroundColor: settings.pinchToScale ? "rgb(249, 115, 22)" : "rgba(128,128,128,0.1)",
+                        backgroundColor: settings.pinchToScale ? "#B3951E" : "rgba(128,128,128,0.1)",
                         color: "#fff"
                       }}
                     >

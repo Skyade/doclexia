@@ -51,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`bg-background text-foreground scroll-smooth ${geist.variable} ${geistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`bg-background text-foreground scroll-smooth ${geist.variable} ${geistMono.variable}`}>
       <head>
         <meta name="theme-color" content="#B3951E" />
         <script dangerouslySetInnerHTML={{ __html: `
