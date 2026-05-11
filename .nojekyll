@@ -1,0 +1,1 @@
+# This file tells GitHub Pages to not run Jekyll, which allows folders starting with an underscore (like _next) to be served.
