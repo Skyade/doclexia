@@ -44,7 +44,8 @@ const SPEED_PRESETS = [
 
 const LS_SETTINGS_KEY = "docviewer-settings"
 const HEADING_TAGS = new Set(["H1", "H2", "H3", "H4", "H5", "H6"])
-const MAX_FILE_SIZE_KB = 500 // 500KB limit to prevent browser crashes with millions of spans
+const MAX_FILE_SIZE_MB = 500
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 function loadSettings(): ReaderSettings {
   try {
@@ -307,8 +308,8 @@ export function DocumentViewer({ file, onClose, bg, onToggleBg, initialIndex = -
     readIndexRef.current = -1
     totalWordsRef.current = 0
 
-    if (file.size > MAX_FILE_SIZE_KB * 1024) {
-      setError(`File is too large (${(file.size/1024).toFixed(0)}KB). Please use files under ${MAX_FILE_SIZE_KB}KB to prevent browser performance issues.`)
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setError(`File is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Please use files under ${MAX_FILE_SIZE_MB}MB to prevent browser performance issues.`)
       setLoading(false)
       return
     }
